@@ -10,7 +10,7 @@ directory:
 	mkdir -p $(BIN_OUT)
 
 build:
-	g++ -std=c++17 $(MAIN_FILE) $(SRC_FILES)/utils.cpp -o $(BIN_OUT)/$(APP_NAME)
+	g++ -std=c++17 $(MAIN_FILE) $(SRC_FILES)/utils.cpp $(SRC_FILES)/webserver.cpp -o $(BIN_OUT)/$(APP_NAME)
 
 run:
 	./$(BIN_OUT)/$(APP_NAME) -logFolder $(LOG_OUT)/log.txt -contentFolder $(CONTENT_FOLDER)
