@@ -9,10 +9,6 @@
 
 static bool loop = true;
 
-static void stop_loop(int signal){
-    loop = false;
-}
-
 constexpr std::string_view RESPONSE =
     "HTTP/1.1 200 OK\r\n"
     "Content-Type: text/html\r\n"
@@ -23,6 +19,25 @@ constexpr std::string_view RESPONSE =
     "<head><title>Hello, World!</title></head>"
     "<body><h1>Hello, World!</h1><p>This is a simple C++ web server.</p></body>"
     "</html>";
+
+
+constexpr std::string_view GET_RESPONSE =
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/html\r\n"
+    "Access-Control-Allow-Origin: *\r\n"
+    "Content-Length: 130\r\n"
+    "\r\n"
+    "<!DOCTYPE html>"
+    "<html>"
+    "<head><title>Hello, World!</title></head>"
+    "<body><h1>Hello, World!</h1><p>This is a simple C++ web server.</p></body>"
+    "</html>";
+
+
+bool starts_with(const std::string& str, const std::string& prefix) {
+    return str.length() >= prefix.length() &&
+           str.compare(0, prefix.length(), prefix) == 0;
+}
 
 FakeFlixWebServer::FakeFlixWebServer(const short port) {
     this->port = port;
@@ -37,13 +52,15 @@ void FakeFlixWebServer::start() {
     bind(server_socket, (struct sockaddr *) &address, sizeof(address));
     listen(server_socket, SOMAXCONN);
     std::cout << "Starting server on port " << this->port << std::endl;
-    signal(SIGINT, stop_loop);
     while (loop) {
         int client_socket = accept(server_socket, nullptr, nullptr);
         std::array<char, 1024> buffer {};
         recv(client_socket, buffer.data(), buffer.size(), 0);
-        send(client_socket, RESPONSE.data(), RESPONSE.size(), 0);
-        close(client_socket);
+        std::string request(buffer.data());
+        if (starts_with(request, "GET")) {
+            std::cout << "Get request! " << std::endl;
+            send(client_socket, GET_RESPONSE.data(), GET_RESPONSE.size(), 0);
+        }
     }
     std::cout << "Stopping server..." << std::endl;
     close(server_socket);
