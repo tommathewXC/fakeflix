@@ -15,27 +15,9 @@
 #include <cstring>
 #include <stdexcept>
 
-constexpr std::string_view GET_RESPONSE =
-    "HTTP/1.1 200 OK\r\n"
-    "Content-Type: text/html\r\n"
-    "Access-Control-Allow-Origin: *\r\n"
-    "Content-Length: 130\r\n"
-    "\r\n"
-    "<!DOCTYPE html>"
-    "<html>"
-    "<head><title>Hello, World!</title></head>"
-    "<body><h1>Hello, World!</h1><p>This is a simple C++ web server.</p></body>"
-    "</html>";
-
-
 const std::string VIDEO_PATH = "content/sample8k.mp4";
 
-bool starts_with(const std::string& str, const std::string& prefix) {
-    return str.length() >= prefix.length() &&
-           str.compare(0, prefix.length(), prefix) == 0;
-}
-
-size_t get_file_size(const std::string& filename) {
+size_t FakeFlixWebServer::get_file_size(const std::string& filename) {
     struct stat st;
     if (stat(filename.c_str(), &st) != 0) {
         return 0;
@@ -43,7 +25,7 @@ size_t get_file_size(const std::string& filename) {
     return st.st_size;
 }
 
-void send_file(int client_socket, const std::string& file_path, const std::string& range) {
+void FakeFlixWebServer::send_file(int client_socket, const std::string& file_path, const std::string& range) {
     std::cout << "Sending file..." << std::endl;
     std::ifstream file(file_path, std::ios::binary);
     if (!file) {
@@ -52,7 +34,7 @@ void send_file(int client_socket, const std::string& file_path, const std::strin
         return;
     }
 
-    size_t file_size = get_file_size(file_path);
+    size_t file_size = this->get_file_size(file_path);
     size_t start_pos = 0;
     size_t end_pos = file_size - 1;
 
@@ -75,7 +57,7 @@ void send_file(int client_socket, const std::string& file_path, const std::strin
     send(client_socket, response.c_str(), response.length(), 0);
 
     file.seekg(start_pos);
-    std::vector<char> buffer(1024 * 1024);  // 1MB buffer
+    std::vector<char> buffer(1024 * 1024 );  // 1MB buffer
     size_t remaining = content_length;
 
     std::cout << "Starting stream" << std::endl;
@@ -83,13 +65,31 @@ void send_file(int client_socket, const std::string& file_path, const std::strin
         size_t to_read = std::min(remaining, buffer.size());
         file.read(buffer.data(), to_read);
         size_t bytes_read = file.gcount();
-        std::cout << "Remaining " << remaining << std::endl;
-        try {
-            send(client_socket, buffer.data(), bytes_read, 0);
-        } catch (const std::exception & e) {
-            std::cout << e.what() << std::endl;
+        std::cout << "Attempting to send " << bytes_read << " bytes. Remaining: " << remaining << std::endl;
+        
+        ssize_t sent = send(client_socket, buffer.data(), bytes_read, 0);
+        if (sent < 0) {
+            std::cerr << "Send error: " << strerror(errno) << std::endl;
+            // Handle specific errors
+            if (errno == EPIPE || errno == ECONNRESET) {
+                std::cerr << "Client disconnected." << std::endl;
+                break;
+            } else {
+                // For other errors, you might want to retry or break depending on the error
+                std::cerr << "Unrecoverable error. Stopping transmission." << std::endl;
+                break;
+            }
+        } else if (sent == 0) {
+            std::cerr << "Send returned 0. Client might have closed the connection." << std::endl;
+            break;
+        } else if (static_cast<size_t>(sent) < bytes_read) {
+            std::cout << "Partial send. Sent " << sent << " out of " << bytes_read << " bytes." << std::endl;
+            file.seekg(-(bytes_read - sent), std::ios_base::cur);
+            remaining -= sent;
+        } else {
+            remaining -= bytes_read;
         }
-        remaining -= bytes_read;
+        std::cout << "Successfully sent " << sent << " bytes. Remaining: " << remaining << std::endl;
     }
 }
 

@@ -64,9 +64,8 @@
   <p>Footer Text</p> 
 </footer>
 <script>
-    $(document).ready(evt => {
-
-      const video = document.getElementById('videoPlayer');
+  document.onload = evt => {
+    const video = document.getElementById('videoPlayer');
         const debugDiv = document.getElementById('debug');
         video.addEventListener('loadstart', () => console.log('Load started'));
         video.addEventListener('progress', () => console.log('Downloading video data'));
@@ -85,7 +84,7 @@
             }
         });
         video.load();
-    });
+  };
 </script>
 
 </body>
